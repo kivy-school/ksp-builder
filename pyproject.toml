@@ -19,7 +19,9 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Software Development :: Build Tools",
 ]
-dependencies = []
+dependencies = [
+  "pyjnius-builder",
+]
 
 [project.urls]
 Homepage = "https://github.com/kivy-school/ksp-builder"
