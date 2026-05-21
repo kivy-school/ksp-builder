@@ -35,6 +35,27 @@ class TestReadAndroidConfig(unittest.TestCase):
             )
             self.assertIsNone(read_android_config(Path(tmp)))
 
+    def test_falls_back_to_project_name(self):
+        content = """
+[project]
+name = "pyonesignal"
+
+[tool.kivy-school.android]
+gradle_dependencies = ["com.onesignal:OneSignal:[5.6.1, 5.9.99]"]
+permissions = ["POST_NOTIFICATIONS", "INTERNET"]
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_pyproject(Path(tmp), content)
+            config = read_android_config(Path(tmp))
+
+        self.assertIsNotNone(config)
+        self.assertEqual(config.package_name, "pyonesignal")
+        self.assertEqual(
+            config.gradle_dependencies,
+            ["com.onesignal:OneSignal:[5.6.1, 5.9.99]"],
+        )
+        self.assertEqual(config.permissions, ["POST_NOTIFICATIONS", "INTERNET"])
+
     def test_reads_full_config(self):
         content = """
 [tool.kivy-school]

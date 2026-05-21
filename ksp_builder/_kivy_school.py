@@ -25,9 +25,12 @@ def read_android_config(project_root: Path) -> AndroidConfig | None:
         return None
 
     data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    android_data = data.get("tool", {}).get("kivy-school", {}).get("android", {})
+    android_section = data.get("tool", {}).get("kivy-school", {})
+    if "android" not in android_section:
+        return None
+    android_data = android_section["android"]
 
-    package_name = android_data.get("package_name")
+    package_name = android_data.get("package_name") or data.get("project", {}).get("name")
     if not package_name:
         return None
 
