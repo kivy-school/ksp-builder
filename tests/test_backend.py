@@ -30,6 +30,18 @@ class TestKspBuilderBackend(unittest.TestCase):
         ):
             self.assertIs(getattr(ksp_builder, hook), getattr(setuptools_build_meta, hook, None))
 
+    def test_all_exports_only_available_hooks(self):
+        self.assertIn("build_wheel", ksp_builder.__all__)
+        for hook in (
+            "build_editable",
+            "get_requires_for_build_editable",
+            "prepare_metadata_for_build_editable",
+        ):
+            if getattr(setuptools_build_meta, hook, None) is None:
+                self.assertNotIn(hook, ksp_builder.__all__)
+            else:
+                self.assertIn(hook, ksp_builder.__all__)
+
 
 if __name__ == "__main__":
     unittest.main()

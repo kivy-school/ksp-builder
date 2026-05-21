@@ -6,9 +6,6 @@ __all__ = [
     "get_requires_for_build_wheel",
     "get_requires_for_build_sdist",
     "prepare_metadata_for_build_wheel",
-    "build_editable",
-    "get_requires_for_build_editable",
-    "prepare_metadata_for_build_editable",
 ]
 
 build_wheel = _setuptools_backend.build_wheel
@@ -24,3 +21,10 @@ get_requires_for_build_editable = getattr(
 prepare_metadata_for_build_editable = getattr(
     _setuptools_backend, "prepare_metadata_for_build_editable", None
 )
+
+if build_editable is not None:
+    __all__.append("build_editable")
+if get_requires_for_build_editable is not None:
+    __all__.append("get_requires_for_build_editable")
+if prepare_metadata_for_build_editable is not None:
+    __all__.append("prepare_metadata_for_build_editable")

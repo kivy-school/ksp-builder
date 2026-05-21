@@ -1,6 +1,7 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+build-backend = "ksp_builder"
+backend-path = ["."]
 
 [project]
 name = "ksp-builder"
