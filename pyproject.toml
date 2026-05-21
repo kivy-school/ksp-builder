@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "ksp_builder"
+requires = ["setuptools>=68", "pyjnius-builder",]
+build-backend = "pyjnius_builder"
 backend-path = ["."]
 
 [project]
