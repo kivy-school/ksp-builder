@@ -29,3 +29,6 @@ Repository = "https://github.com/kivy-school/ksp-builder"
 
 [tool.setuptools]
 packages = ["ksp_builder"]
+
+[tool.uv.sources]
+pyjnius-builder = { git = "https://github.com/kivy-school/pyjnius-builder" }  
