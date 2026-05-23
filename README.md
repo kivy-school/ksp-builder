@@ -5,7 +5,7 @@ convention), Swift build support
 ([pyswiftkit-builder](https://github.com/Py-Swift/pyswiftkit-builder)), and
 Android Gradle configuration injection into a single backend.
 
-**Requires Python ≥ 3.11** (uses `tomllib` from the standard library and aligns
+**Requires Python ≥ 3.13** (uses `tomllib` from the standard library and aligns
 with the minimum version requirements of pyswiftkit-builder and pyjnius-builder).
 
 ## Usage
