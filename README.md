@@ -38,6 +38,9 @@ permissions = [
     "INTERNET",
     "CAMERA",
 ]
+[tool.kivy-school.android.meta_data]
+"com.google.android.gms.ads.APPLICATION_ID" = "ca-app-pub-3940256099942544~3347511713"
+
 ```
 
 ### Java sources — `[tool.pyjnius]`
