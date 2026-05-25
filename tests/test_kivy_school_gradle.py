@@ -65,6 +65,9 @@ app_name = "MyApp"
 package_name = "org.example.myapp"
 gradle_dependencies = ["com.google.firebase:firebase-analytics:21.0.0"]
 permissions = ["INTERNET", "CAMERA"]
+
+[tool.kivy-school.android.meta_data]
+"com.google.android.gms.ads.APPLICATION_ID" = "ca-app-pub-xxxxxxxx~xxxxxxxx"
 """
         with tempfile.TemporaryDirectory() as tmp:
             self._write_pyproject(Path(tmp), content)
@@ -77,6 +80,10 @@ permissions = ["INTERNET", "CAMERA"]
             ["com.google.firebase:firebase-analytics:21.0.0"],
         )
         self.assertEqual(config.permissions, ["INTERNET", "CAMERA"])
+        self.assertEqual(
+            config.meta_data,
+            {"com.google.android.gms.ads.APPLICATION_ID": "ca-app-pub-xxxxxxxx~xxxxxxxx"},
+        )
 
     def test_reads_config_with_empty_lists(self):
         content = """
@@ -91,6 +98,7 @@ package_name = "org.example.empty"
         self.assertEqual(config.package_name, "org.example.empty")
         self.assertEqual(config.gradle_dependencies, [])
         self.assertEqual(config.permissions, [])
+        self.assertEqual(config.meta_data, {})
 
 
 class TestGenerateGradleJson(unittest.TestCase):
@@ -99,12 +107,17 @@ class TestGenerateGradleJson(unittest.TestCase):
             package_name="org.example.myapp",
             gradle_dependencies=["com.example:lib:1.0"],
             permissions=["INTERNET"],
+            meta_data={"com.google.android.gms.ads.APPLICATION_ID": "ca-app-pub-xxx~xxx"},
         )
         raw = generate_gradle_json(config)
         data = json.loads(raw)
         self.assertEqual(data["package_name"], "org.example.myapp")
         self.assertEqual(data["gradle_dependencies"], ["com.example:lib:1.0"])
         self.assertEqual(data["permissions"], ["INTERNET"])
+        self.assertEqual(
+            data["meta_data"],
+            {"com.google.android.gms.ads.APPLICATION_ID": "ca-app-pub-xxx~xxx"},
+        )
 
     def test_json_is_valid_utf8(self):
         config = AndroidConfig(package_name="org.example.app")

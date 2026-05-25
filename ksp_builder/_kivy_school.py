@@ -13,6 +13,7 @@ class AndroidConfig:
     package_name: str
     gradle_dependencies: list[str] = field(default_factory=list)
     permissions: list[str] = field(default_factory=list)
+    meta_data: dict[str, str] = field(default_factory=dict)
 
 
 def read_android_config(project_root: Path) -> AndroidConfig | None:
@@ -38,4 +39,5 @@ def read_android_config(project_root: Path) -> AndroidConfig | None:
         package_name=package_name,
         gradle_dependencies=list(android_data.get("gradle_dependencies", [])),
         permissions=list(android_data.get("permissions", [])),
+        meta_data=dict(android_data.get("meta_data", {})),
     )

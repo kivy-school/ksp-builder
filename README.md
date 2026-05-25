@@ -5,7 +5,7 @@ convention), Swift build support
 ([pyswiftkit-builder](https://github.com/Py-Swift/pyswiftkit-builder)), and
 Android Gradle configuration injection into a single backend.
 
-**Requires Python ≥ 3.11** (uses `tomllib` from the standard library and aligns
+**Requires Python ≥ 3.13** (uses `tomllib` from the standard library and aligns
 with the minimum version requirements of pyswiftkit-builder and pyjnius-builder).
 
 ## Usage
@@ -38,6 +38,9 @@ permissions = [
     "INTERNET",
     "CAMERA",
 ]
+[tool.kivy-school.android.meta_data]
+"com.google.android.gms.ads.APPLICATION_ID" = "ca-app-pub-3940256099942544~3347511713"
+
 ```
 
 ### Java sources — `[tool.pyjnius]`

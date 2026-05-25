@@ -13,10 +13,10 @@ run after the base setuptools wheel/sdist is produced:
    compiled ``.so`` / ``.dylib`` files are injected into the wheel.
 
 3. **Android gradle config** — if ``[tool.kivy-school.android]`` is present,
-   a ``.gradle/<package_name>.json`` file containing ``gradle_dependencies``
-   and ``permissions`` is injected into the wheel/sdist.  ``ksproject`` can
-   then discover and merge these JSON files from all installed packages to
-   assemble the final Gradle build configuration.
+   a ``.gradle/<package_name>.json`` file containing ``gradle_dependencies``,
+   ``permissions``, and ``meta_data`` is injected into the wheel/sdist.
+   ``ksproject`` can then discover and merge these JSON files from all
+   installed packages to assemble the final Gradle build configuration.
 """
 from __future__ import annotations
 

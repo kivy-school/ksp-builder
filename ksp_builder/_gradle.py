@@ -19,6 +19,7 @@ def generate_gradle_json(config: AndroidConfig) -> bytes:
         "package_name": config.package_name,
         "gradle_dependencies": config.gradle_dependencies,
         "permissions": config.permissions,
+        "meta_data": config.meta_data,
     }
     return json.dumps(data, indent=2).encode("utf-8")
 
