@@ -18,6 +18,34 @@ build-backend = "ksp_builder"
 
 ## Configuration
 
+### Build scripts — `[tool.ksp-builder]`
+
+Run your own scripts around the build.  `before_build` runs before the artifact
+is assembled, `after_build` runs once it exists on disk.  Both keys are optional
+and paths are relative to the project root.
+
+```toml
+[tool.ksp-builder]
+before_build = "scripts/before_build.py"
+after_build = "scripts/sign_wheel.sh"
+```
+
+The scripts do not have to be Python.  A `.py` path is run with the interpreter
+running the build; any other path is executed directly, so it needs its
+executable bit set (`chmod +x`) and a shebang naming its interpreter:
+
+```sh
+#!/usr/bin/env bash
+set -e
+codesign --sign "$SIGNING_IDENTITY" "$KSP_BUILD_ARTIFACT"
+```
+
+Scripts run with the project root as their working directory.  `after_build`
+receives the artifact path as its first argument.  Both are given the
+environment variables `KSP_BUILD_PROJECT_ROOT`, `KSP_BUILD_TARGET`
+(`wheel`, `sdist` or `editable`), and — for `after_build` —
+`KSP_BUILD_ARTIFACT`.  A script that exits non-zero fails the build.
+
 ### Android Gradle config — `[tool.kivy-school.android]`
 
 When present, `ksp-builder` generates a `.gradle/<package_name>.json` file and

@@ -18,6 +18,7 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
 ]
 dependencies = [
+  "cython>=3.3.0",
   "pyjnius-builder",
 ]
 
