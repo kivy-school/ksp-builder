@@ -3,8 +3,9 @@
 Wraps setuptools and combines functionality from pyjnius-builder and
 pyswiftkit-builder into a single backend.  User-supplied ``before_build`` /
 ``after_build`` scripts configured under ``[tool.ksp-builder]`` bracket every
-build, and three optional injection steps run after the base setuptools
-wheel/sdist is produced:
+build, package sources can be compiled with Cython (``cythonize`` /
+``py_to_pyx``, replacing the old cythonized-app setup.py), and three optional
+injection steps run after the base setuptools wheel/sdist is produced:
 
 1. **Java sources** — if ``[tool.pyjnius]`` is present, Java files from the
    configured ``java-paths`` are injected under ``.java/`` (same convention
@@ -20,11 +21,13 @@ wheel/sdist is produced:
    ``ksproject`` can then discover and merge these JSON files from all
    installed packages to assemble the final Gradle build configuration.
 
-Configure the surrounding scripts with::
+The backend's own section::
 
     [tool.ksp-builder]
     before_build = "path/to/before_build_script.py"
     after_build = "path/to/after_build_script.py"
+    cythonize = true
+    py_to_pyx = true
 """
 from __future__ import annotations
 
@@ -83,9 +86,11 @@ def build_wheel(
         _run_swift_build(project_dir, swift_config)
         _force_platform_wheel()
 
-    wheel_name = _setuptools_backend.build_wheel(
-        wheel_directory, config_settings, metadata_directory
-    )
+    from ._cythonize import cython_build
+    with cython_build(project_dir):
+        wheel_name = _setuptools_backend.build_wheel(
+            wheel_directory, config_settings, metadata_directory
+        )
     wheel_path = Path(wheel_directory) / wheel_name
 
     if swift_config is not None:
@@ -152,9 +157,13 @@ if _st_build_editable is not None:
         if _st_build_editable is None:
             raise RuntimeError("Editable builds are not supported by this setuptools version.")
         
-        wheel_name = _st_build_editable(
-            wheel_directory, config_settings, metadata_directory
-        )
+        # Editable installs expose the source tree, so .py modules are left
+        # alone; only real .pyx sources are compiled.
+        from ._cythonize import cython_build
+        with cython_build(project_dir, allow_py_to_pyx=False):
+            wheel_name = _st_build_editable(
+                wheel_directory, config_settings, metadata_directory
+            )
         wheel_path = Path(wheel_directory) / wheel_name
 
         if swift_config is not None:

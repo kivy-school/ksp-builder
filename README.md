@@ -46,6 +46,59 @@ environment variables `KSP_BUILD_PROJECT_ROOT`, `KSP_BUILD_TARGET`
 (`wheel`, `sdist` or `editable`), and — for `after_build` —
 `KSP_BUILD_ARTIFACT`.  A script that exits non-zero fails the build.
 
+### Cython compilation — `[tool.ksp-builder]`
+
+Compiles your package sources into extension modules, replacing the
+`cythonized_app` `setup.py` (there is no `setup.py` with a PEP 517 backend, so
+`ksp-builder` injects the `ext_modules` itself).
+
+```toml
+[tool.ksp-builder]
+cythonize = true
+py_to_pyx = true
+```
+
+The two switches are separate on purpose:
+
+| Setting | Effect |
+| --- | --- |
+| `cythonize = true` | Compiles the `.pyx` sources already in your packages. `.py` modules are untouched. |
+| `py_to_pyx = true` | Also copies each `.py` module to `.cy_src/` as a `.pyx` and compiles it. **Requires `cythonize`** — on its own it does nothing. |
+
+`__init__.py` is never converted, so packages stay importable, and top-level
+modules (`py-modules`) are left alone.  A converted module ships only as its
+compiled extension: the original `.py` is dropped from the wheel.  Generated
+`.pyx` and C files are written to `.cy_src/` at the project root, which you can
+add to `.gitignore`.
+
+Package layout still comes from `[tool.setuptools]` — `packages`, `package-dir`
+and `packages.find` are read as-is (with the same src/flat auto-discovery
+setuptools does), so nothing is duplicated in this section.  The remaining keys
+only tune the Cython step:
+
+```toml
+[tool.ksp-builder]
+cythonize = true
+py_to_pyx = true
+cythonize_exclude = ["main.py", "**/legacy/*.py"]  # keep these as .py
+cythonize_keep_py = true                           # ship the .py sources too
+
+[tool.ksp-builder.cythonize_directives]
+language_level = "3"   # the default
+boundscheck = false
+```
+
+A pattern in `cythonize_exclude` without a `/` matches that file name at any
+depth; a pattern with one is matched against the whole project-relative path.
+
+Editable installs (`pip install -e .`) compile real `.pyx` sources but never
+convert `.py`, so your edits keep taking effect during development.  Sdists are
+never cythonized — compilation happens when a wheel is built from the sdist.
+Note that setuptools does not add `.pyx` files to an sdist on its own, so if you
+ship hand-written Cython sources, include them (`MANIFEST.in` with
+`recursive-include <pkg> *.pyx *.pxd`) or a wheel built from the sdist will have
+nothing to compile.
+
 ### Android Gradle config — `[tool.kivy-school.android]`
 
 When present, `ksp-builder` generates a `.gradle/<package_name>.json` file and
