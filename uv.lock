@@ -2,20 +2,13 @@ version = 1
 revision = 3
 requires-python = ">=3.13"
 
-
 [[package]]
 name = "compilekv"
 version = "0.1.0"
-source = { path = "/Users/codebuilder/Documents/dev_projects/compilekv-dev/compilekv/dist/compilekv-0.1.0-py3-none-any.whl" }
+source = { git = "https://github.com/kivy-school/compilekv?rev=init_upload#3e7fa113986e0f7c47c42ca13453972244b08f12" }
 dependencies = [
     { name = "wasmtime" },
 ]
-wheels = [
-    { filename = "compilekv-0.1.0-py3-none-any.whl", hash = "sha256:173c0ba015aa5e922aec37aa97cd592a7155031d391404af6a15987cedb12337" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "wasmtime", specifier = ">=25" }]
 
 [[package]]
 name = "cython"
@@ -76,7 +69,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "compilekv", path = "/Users/codebuilder/Documents/dev_projects/compilekv-dev/compilekv/dist/compilekv-0.1.0-py3-none-any.whl" },
+    { name = "compilekv", git = "https://github.com/kivy-school/compilekv?rev=init_upload" },
     { name = "cython", specifier = ">=3.3.0" },
     { name = "pyjnius-builder", git = "https://github.com/kivy-school/pyjnius-builder" },
     { name = "setuptools", specifier = ">=84.0.0" },
