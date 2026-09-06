@@ -1,7 +1,8 @@
 # ksp-builder
-A PEP 517 build backend for KSProject-based packages that combines Java source
-injection ([pyjnius-builder](https://github.com/kivy-school/pyjnius-builder)
-convention), Swift build support
+A PEP 517 build backend for KSProject-based packages that combines Cython
+compilation, Kivy KV compilation, Java source injection
+([pyjnius-builder](https://github.com/kivy-school/pyjnius-builder) convention),
+Swift build support
 ([pyswiftkit-builder](https://github.com/Py-Swift/pyswiftkit-builder)), and
 Android Gradle configuration injection into a single backend.
 
@@ -63,13 +64,49 @@ The two switches are separate on purpose:
 | Setting | Effect |
 | --- | --- |
 | `cythonize = true` | Compiles the `.pyx` sources already in your packages. `.py` modules are untouched. |
-| `py_to_pyx = true` | Also copies each `.py` module to `.cy_src/` as a `.pyx` and compiles it. **Requires `cythonize`** — on its own it does nothing. |
+| `py_to_pyx = true` | Also copies each `.py` module to `.dist_src/` as a `.pyx` and compiles it. **Requires `cythonize`** — on its own it does nothing. |
 
-`__init__.py` is never converted, so packages stay importable, and top-level
-modules (`py-modules`) are left alone.  A converted module ships only as its
+`__init__.py` and `__main__.py` are never converted — the first keeps the
+package importable, the second keeps `python -m yourpackage` working, since
+runpy needs a code object that a compiled extension cannot provide.  Both are
+still shipped, just as `.py`.  Top-level modules (`py-modules`) are left alone
+too.  A converted module ships only as its
 compiled extension: the original `.py` is dropped from the wheel.  Generated
-`.pyx` and C files are written to `.cy_src/` at the project root, which you can
-add to `.gitignore`.
+`.pyx` and C files are written to `.dist_src/` at the project root, which you
+can add to `.gitignore`.  Nothing is ever written back into your package: a
+build leaves the source tree exactly as it found it.
+
+#### `.kv` files and other assets
+
+Plain setuptools ships only Python modules, so a cythonized Kivy app would build
+fine and then fail at runtime with its `.kv` files missing.  Whenever it is
+compiling something (`cythonize` or `compile_kv`), `ksp-builder` therefore
+ships **every file in your packages** as package data —
+`.kv`, images, fonts, JSON, whatever is there — including files in nested data
+directories such as `assets/images/`.  No configuration needed.
+
+```
+kvapp/__init__.py          ->  kvapp/__init__.py
+kvapp/app.py               ->  kvapp/app.cpython-313-darwin.so
+kvapp/app.kv               ->  kvapp/app.kv
+kvapp/data/images/logo.png ->  kvapp/data/images/logo.png
+kvapp/fonts/Roboto.ttf     ->  kvapp/fonts/Roboto.ttf
+```
+
+Assets land next to the compiled extension, so `Path(__file__).parent` still
+finds them.  Directories containing an `__init__.py` are skipped here and
+collected as the packages they are.  (With `compile_kv = true` the `.kv` files
+are the exception: they are compiled into their modules instead of shipped —
+see below.)
+
+Sources and build output are the one exception — `.py`, `.pyx`, `.pxd`, `.c`,
+`.h`, `.o`, `.so`, `.pyd`, `.pyc` and `__pycache__` are never shipped as assets,
+since that would hand back the very sources the compilation just removed.  To
+ship one of those deliberately (a prebuilt binary, say), name it explicitly in
+`[tool.setuptools.package-data]`, which is merged with what is found here.
+
+Set `include_assets = false` to turn the whole behaviour off and go back to
+declaring package data yourself.
 
 Package layout still comes from `[tool.setuptools]` — `packages`, `package-dir`
 and `packages.find` are read as-is (with the same src/flat auto-discovery
@@ -82,6 +119,7 @@ cythonize = true
 py_to_pyx = true
 cythonize_exclude = ["main.py", "**/legacy/*.py"]  # keep these as .py
 cythonize_keep_py = true                           # ship the .py sources too
+include_assets = false                             # stop auto-shipping assets
 
 [tool.ksp-builder.cythonize_directives]
 language_level = "3"   # the default
@@ -98,6 +136,63 @@ Note that setuptools does not add `.pyx` files to an sdist on its own, so if you
 ship hand-written Cython sources, include them (`MANIFEST.in` with
 `recursive-include <pkg> *.pyx *.pxd`) or a wheel built from the sdist will have
 nothing to compile.
+
+### Kivy KV compilation — `[tool.ksp-builder]`
+
+```toml
+[tool.ksp-builder]
+compile_kv = true
+```
+
+Turns every `.kv` file in your packages into a Python module using the
+[`compilekv`](https://github.com/kivy-school/compilekv) library: the KV rules
+become real widget classes, so nothing has to be parsed at startup and the
+result can be compiled like any other module.
+
+Each `.kv` is compiled together with the `.py` of the same name beside it, and
+the module the two produce replaces that `.py` in the wheel.  A `.kv` with no
+`.py` beside it simply becomes a module of its own.  The `.kv` itself is *not*
+shipped — it has been compiled into the module, and shipping it too would only
+invite a second, conflicting set of rules at runtime.
+
+```
+kvapp/app.py + kvapp/app.kv  ->  kvapp/app.py        (the two, merged)
+kvapp/theme.kv               ->  kvapp/theme.py      (no .py of its own)
+```
+
+Only `.kv` files sitting **directly in a package** are compiled, since a
+compiled KV file becomes an importable module and there is no module name for
+one in a plain data directory.  A `.kv` under `kvapp/ui/` stays ordinary
+package data.
+
+#### All three switches together
+
+`compile_kv` composes with the Cython switches.  With all three on, the module
+compiled out of the `.kv` is staged as a `.pyx` and compiled to an extension,
+so neither the `.kv` nor the `.py` that fed it reaches the wheel:
+
+```toml
+[tool.ksp-builder]
+cythonize = true
+py_to_pyx = true
+compile_kv = true
+```
+
+```
+kvapp/__init__.py            ->  kvapp/__init__.py
+kvapp/__main__.py            ->  kvapp/__main__.py
+kvapp/app.py + kvapp/app.kv  ->  kvapp/app.cpython-313-darwin.so
+kvapp/theme.kv               ->  kvapp/theme.cpython-313-darwin.so
+kvapp/assets/logo.png        ->  kvapp/assets/logo.png
+```
+
+A module named by `cythonize_exclude` is still compiled out of its KV file, it
+just stays a plain `.py`.  `__init__` and `__main__` are never turned into
+extensions here either.
+
+Editable installs (`pip install -e .`) leave `.kv` files alone — the source
+tree is what gets imported, so a generated module would never be used and your
+`.kv` edits keep taking effect during development.
 
 ### Android Gradle config — `[tool.kivy-school.android]`
 

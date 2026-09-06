@@ -18,6 +18,7 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
 ]
 dependencies = [
+  "compilekv",
   "cython>=3.3.0",
   "pyjnius-builder",
   "setuptools>=84.0.0",
@@ -32,3 +33,4 @@ packages = ["ksp_builder"]
 
 [tool.uv.sources]
 pyjnius-builder = { git = "https://github.com/kivy-school/pyjnius-builder" }  
+compilekv = { git = "https://github.com/kivy-school/compilekv" }

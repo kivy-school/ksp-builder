@@ -10,7 +10,9 @@ after_build = "path/to/after_build_script.py"
 # cythonize / setuptools
 cythonize = true
 py_to_pyx = true
-# pybind options ?
+
+# kv files
+compile_kv = true
 
 [tool.pyjnius]
 java-paths = ["java/"]

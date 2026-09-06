@@ -4,8 +4,10 @@ Wraps setuptools and combines functionality from pyjnius-builder and
 pyswiftkit-builder into a single backend.  User-supplied ``before_build`` /
 ``after_build`` scripts configured under ``[tool.ksp-builder]`` bracket every
 build, package sources can be compiled with Cython (``cythonize`` /
-``py_to_pyx``, replacing the old cythonized-app setup.py), and three optional
-injection steps run after the base setuptools wheel/sdist is produced:
+``py_to_pyx``, replacing the old cythonized-app setup.py), Kivy ``.kv`` files
+can be compiled into the modules beside them (``compile_kv``), and three
+optional injection steps run after the base setuptools wheel/sdist is
+produced:
 
 1. **Java sources** — if ``[tool.pyjnius]`` is present, Java files from the
    configured ``java-paths`` are injected under ``.java/`` (same convention
@@ -28,6 +30,7 @@ The backend's own section::
     after_build = "path/to/after_build_script.py"
     cythonize = true
     py_to_pyx = true
+    compile_kv = true
 """
 from __future__ import annotations
 
@@ -86,8 +89,8 @@ def build_wheel(
         _run_swift_build(project_dir, swift_config)
         _force_platform_wheel()
 
-    from ._cythonize import cython_build
-    with cython_build(project_dir):
+    from ._build import ksp_build
+    with ksp_build(project_dir):
         wheel_name = _setuptools_backend.build_wheel(
             wheel_directory, config_settings, metadata_directory
         )
@@ -157,10 +160,10 @@ if _st_build_editable is not None:
         if _st_build_editable is None:
             raise RuntimeError("Editable builds are not supported by this setuptools version.")
         
-        # Editable installs expose the source tree, so .py modules are left
-        # alone; only real .pyx sources are compiled.
-        from ._cythonize import cython_build
-        with cython_build(project_dir, allow_py_to_pyx=False):
+        # Editable installs expose the source tree, so .py modules and .kv
+        # files are left alone; only real .pyx sources are compiled.
+        from ._build import ksp_build
+        with ksp_build(project_dir, editable=True):
             wheel_name = _st_build_editable(
                 wheel_directory, config_settings, metadata_directory
             )

@@ -4,20 +4,28 @@ from pathlib import Path
 
 import setuptools
 
+from ksp_builder._build import ksp_build
 from ksp_builder._cythonize import (
-    STAGING_DIR,
     CythonizeConfig,
     collect_modules,
-    cython_build,
+    read_cythonize_config,
+)
+from ksp_builder._packages import (
+    STAGING_DIR,
+    find_package_assets,
     find_packages,
     is_excluded,
-    read_cythonize_config,
+    prune_staging,
 )
 
 
 def _write(path: Path, content: str = "") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _prune(root: Path, modules) -> None:
+    prune_staging(root, {root / m.source for m in modules if m.converted})
 
 
 class TestReadCythonizeConfig(unittest.TestCase):
@@ -198,13 +206,20 @@ class TestCollectModules(unittest.TestCase):
                 (root / core.source).read_text(), "def add(a, b): return a + b\n"
             )
 
-    def test_init_is_never_converted(self):
+    def test_init_and_main_are_never_converted(self):
+        # __init__ keeps the package importable; __main__ must stay executable
+        # by runpy, which needs a code object an extension cannot provide.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._project(root)
+            _write(root / "myapp" / "__main__.py", "print('go')\n")
             config = CythonizeConfig(cythonize=True, py_to_pyx=True)
             modules = collect_modules(root, config)
-            self.assertNotIn("__init__", [m.name for m in modules])
+            names = [m.name for m in modules]
+            self.assertNotIn("__init__", names)
+            self.assertNotIn("__main__", names)
+            self.assertIn("core", names)
+            self.assertFalse((root / STAGING_DIR / "myapp" / "__main__.pyx").exists())
 
     def test_exclude_keeps_module_as_python(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -252,19 +267,83 @@ class TestCollectModules(unittest.TestCase):
             root = Path(tmp)
             self._project(root)
             config = CythonizeConfig(cythonize=True, py_to_pyx=True)
-            collect_modules(root, config)
+            _prune(root, collect_modules(root, config))
             self.assertTrue((root / STAGING_DIR / "myapp" / "core.pyx").exists())
 
             (root / "myapp" / "core.py").unlink()
-            collect_modules(root, config)
+            _prune(root, collect_modules(root, config))
             self.assertFalse((root / STAGING_DIR / "myapp" / "core.pyx").exists())
 
 
-class TestCythonBuild(unittest.TestCase):
+class TestFindPackageAssets(unittest.TestCase):
+    def test_collects_every_non_source_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            package = Path(tmp) / "kvapp"
+            _write(package / "__init__.py")
+            _write(package / "app.kv", "<Root>:")
+            _write(package / "settings.json", "{}")
+            _write(package / "NOTES.txt", "hi")
+            _write(package / "data" / "images" / "logo.png", "PNG")
+            _write(package / "fonts" / "Roboto.ttf", "ttf")
+
+            found = {
+                Path(path).relative_to(package).as_posix()
+                for path in find_package_assets(package)
+            }
+            self.assertEqual(
+                found,
+                {
+                    "app.kv",
+                    "settings.json",
+                    "NOTES.txt",
+                    "data/images/logo.png",
+                    "fonts/Roboto.ttf",
+                },
+            )
+
+    def test_sources_and_build_output_are_never_assets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            package = Path(tmp) / "kvapp"
+            _write(package / "__init__.py")
+            _write(package / "app.py", "x = 1")
+            _write(package / "turbo.pyx", "x = 1")
+            _write(package / "turbo.c", "/* c */")
+            _write(package / "header.h", "/* h */")
+            _write(package / "prebuilt.so", "binary")
+            _write(package / "__pycache__" / "app.cpython-313.pyc", "junk")
+            _write(package / ".DS_Store", "junk")
+            _write(package / "app.kv", "<Root>:")
+
+            found = [
+                Path(path).relative_to(package).as_posix()
+                for path in find_package_assets(package)
+            ]
+            self.assertEqual(found, ["app.kv"])
+
+    def test_nested_packages_are_left_to_their_own_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            package = Path(tmp) / "kvapp"
+            _write(package / "__init__.py")
+            _write(package / "widgets" / "__init__.py")
+            _write(package / "widgets" / "button.kv", "<Button>:")
+            _write(package / "app.kv", "<Root>:")
+
+            found = [
+                Path(path).relative_to(package).as_posix()
+                for path in find_package_assets(package)
+            ]
+            self.assertEqual(found, ["app.kv"])
+
+    def test_missing_directory_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(find_package_assets(Path(tmp) / "nope"), [])
+
+
+class TestKspBuild(unittest.TestCase):
     def test_no_op_without_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = setuptools.setup
-            with cython_build(Path(tmp)):
+            with ksp_build(Path(tmp)):
                 self.assertIs(setuptools.setup, original)
 
     def test_no_op_when_py_to_pyx_alone(self):
@@ -274,7 +353,7 @@ class TestCythonBuild(unittest.TestCase):
             _write(root / "myapp" / "__init__.py")
             _write(root / "myapp" / "core.py", "def add(a, b): return a + b\n")
             original = setuptools.setup
-            with cython_build(root):
+            with ksp_build(root):
                 self.assertIs(setuptools.setup, original)
             self.assertFalse((root / STAGING_DIR).exists())
 
@@ -302,7 +381,7 @@ class TestCythonBuild(unittest.TestCase):
 
                 os.chdir(root)
                 try:
-                    with cython_build(root):
+                    with ksp_build(root):
                         self.assertIsNot(setuptools.setup, fake_setup)
                         setuptools.setup()
                 finally:
@@ -313,7 +392,88 @@ class TestCythonBuild(unittest.TestCase):
 
             names = [ext.name for ext in recorded["ext_modules"]]
             self.assertEqual(names, ["myapp.core"])
-            self.assertIn("build_py", recorded["cmdclass"])
+            build_py = recorded["cmdclass"]["build_py"]
+            self.assertEqual(build_py.ksp_excluded, {("myapp", "core")})
+            self.assertTrue(build_py.ksp_include_assets)
+
+    def test_generated_c_is_not_nested_in_the_staging_dir(self):
+        # Cython writes to build_dir/<source path>, so handing it a staged
+        # source (already staged) used to produce a doubled staging path.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(
+                root / "pyproject.toml",
+                '[tool.setuptools]\npackages = ["nestapp"]\n'
+                "[tool.ksp-builder]\ncythonize = true\npy_to_pyx = true\n",
+            )
+            _write(root / "nestapp" / "__init__.py")
+            _write(root / "nestapp" / "staged.py", "def add(a, b): return a + b\n")
+            _write(root / "nestapp" / "inline.pyx", "def fast(int a):\n    return a\n")
+
+            import os
+
+            original = setuptools.setup
+            setuptools.setup = lambda **attrs: None
+            cwd = Path.cwd()
+            os.chdir(root)
+            try:
+                with ksp_build(root):
+                    pass
+            finally:
+                os.chdir(cwd)
+                setuptools.setup = original
+
+            self.assertFalse((root / STAGING_DIR / STAGING_DIR).exists())
+            generated = sorted(
+                path.relative_to(root).as_posix()
+                for path in (root / STAGING_DIR).rglob("*.c")
+            )
+            self.assertEqual(
+                generated,
+                [f"{STAGING_DIR}/nestapp/inline.c", f"{STAGING_DIR}/nestapp/staged.c"],
+            )
+            # The in-tree .pyx must not leave its .c in the package directory.
+            self.assertFalse((root / "nestapp" / "inline.c").exists())
+
+    def test_source_tree_is_never_written_to(self):
+        # Nothing may appear next to the user's modules: no .pyx, no .c, and
+        # no rewrite of the .py files themselves.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(
+                root / "pyproject.toml",
+                '[tool.setuptools]\npackage-dir = {"" = "src"}\n'
+                '[tool.setuptools.packages.find]\nwhere = ["src"]\n'
+                "[tool.ksp-builder]\ncythonize = true\npy_to_pyx = true\n",
+            )
+            package = root / "src" / "srcapp"
+            _write(package / "__init__.py")
+            _write(package / "plain.py", "def add(a, b): return a + b\n")
+            _write(package / "handwritten.pyx", "def fast(int a):\n    return a\n")
+
+            def snapshot():
+                return {
+                    path.relative_to(root): (path.read_bytes(), path.stat().st_mtime_ns)
+                    for path in (root / "src").rglob("*")
+                    if path.is_file()
+                }
+
+            before = snapshot()
+
+            import os
+
+            original = setuptools.setup
+            setuptools.setup = lambda **attrs: None
+            cwd = Path.cwd()
+            os.chdir(root)
+            try:
+                with ksp_build(root):
+                    pass
+            finally:
+                os.chdir(cwd)
+                setuptools.setup = original
+
+            self.assertEqual(snapshot(), before)
 
     def test_keep_py_leaves_build_py_alone(self):
         # A distinct package/module name: Cython caches dependency state by
@@ -338,7 +498,7 @@ class TestCythonBuild(unittest.TestCase):
                 cwd = Path.cwd()
                 os.chdir(root)
                 try:
-                    with cython_build(root):
+                    with ksp_build(root):
                         setuptools.setup()
                 finally:
                     os.chdir(cwd)
@@ -346,7 +506,9 @@ class TestCythonBuild(unittest.TestCase):
                 setuptools.setup = original
 
             self.assertEqual(len(recorded["ext_modules"]), 1)
-            self.assertNotIn("cmdclass", recorded)
+            # build_py is still installed (it collects assets) but must not
+            # drop any module from the wheel.
+            self.assertEqual(recorded["cmdclass"]["build_py"].ksp_excluded, set())
 
 
 if __name__ == "__main__":
