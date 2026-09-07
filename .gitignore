@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Lock files -- resolved on demand, never committed. A committed uv.lock here
+# pins compilekv for every downstream consumer.
+uv.lock
+Package.resolved
