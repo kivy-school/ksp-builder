@@ -1,8 +1,13 @@
 """ksp_builder — PEP 517 build backend for KSProject-based packages.
 
 Wraps setuptools and combines functionality from pyjnius-builder and
-pyswiftkit-builder into a single backend.  Three optional injection steps
-run after the base setuptools wheel/sdist is produced:
+pyswiftkit-builder into a single backend.  User-supplied ``before_build`` /
+``after_build`` scripts configured under ``[tool.ksp-builder]`` bracket every
+build, package sources can be compiled with Cython (``cythonize`` /
+``py_to_pyx``, replacing the old cythonized-app setup.py), Kivy ``.kv`` files
+can be compiled into the modules beside them (``compile_kv``), and three
+optional injection steps run after the base setuptools wheel/sdist is
+produced:
 
 1. **Java sources** — if ``[tool.pyjnius]`` is present, Java files from the
    configured ``java-paths`` are injected under ``.java/`` (same convention
@@ -17,6 +22,15 @@ run after the base setuptools wheel/sdist is produced:
    ``permissions``, and ``meta_data`` is injected into the wheel/sdist.
    ``ksproject`` can then discover and merge these JSON files from all
    installed packages to assemble the final Gradle build configuration.
+
+The backend's own section::
+
+    [tool.ksp-builder]
+    before_build = "path/to/before_build_script.py"
+    after_build = "path/to/after_build_script.py"
+    cythonize = true
+    py_to_pyx = true
+    compile_kv = true
 """
 from __future__ import annotations
 
@@ -65,6 +79,9 @@ def build_wheel(
 ) -> str:
     project_dir = Path.cwd()
 
+    from ._pre_post_build import run_before_build, run_after_build
+    run_before_build(project_dir, "wheel")
+
     # Swift build must happen before setuptools assembles the wheel so that
     # the compiled .so/.dylib files can be picked up as package data.
     swift_config = _load_swift_config(project_dir)
@@ -72,9 +89,11 @@ def build_wheel(
         _run_swift_build(project_dir, swift_config)
         _force_platform_wheel()
 
-    wheel_name = _setuptools_backend.build_wheel(
-        wheel_directory, config_settings, metadata_directory
-    )
+    from ._build import ksp_build
+    with ksp_build(project_dir):
+        wheel_name = _setuptools_backend.build_wheel(
+            wheel_directory, config_settings, metadata_directory
+        )
     wheel_path = Path(wheel_directory) / wheel_name
 
     if swift_config is not None:
@@ -92,11 +111,16 @@ def build_wheel(
     if android_config is not None:
         inject_gradle_config_to_wheel(wheel_path, android_config)
 
+    run_after_build(project_dir, "wheel", wheel_path)
+
     return wheel_name
 
 
 def build_sdist(sdist_directory: str, config_settings: dict | None = None) -> str:
     project_dir = Path.cwd()
+
+    from ._pre_post_build import run_before_build, run_after_build
+    run_before_build(project_dir, "sdist")
 
     sdist_name = _setuptools_backend.build_sdist(sdist_directory, config_settings)
     sdist_path = Path(sdist_directory) / sdist_name
@@ -113,6 +137,8 @@ def build_sdist(sdist_directory: str, config_settings: dict | None = None) -> st
     if android_config is not None:
         inject_gradle_config_to_sdist(sdist_path, android_config)
 
+    run_after_build(project_dir, "sdist", sdist_path)
+
     return sdist_name
 
 
@@ -124,14 +150,23 @@ if _st_build_editable is not None:
     ) -> str:
         project_dir = Path.cwd()
 
+        from ._pre_post_build import run_before_build, run_after_build
+        run_before_build(project_dir, "editable")
+
         swift_config = _load_swift_config(project_dir)
         if swift_config is not None:
             _run_swift_build(project_dir, swift_config)
             _force_platform_wheel()
-
-        wheel_name = _st_build_editable(
-            wheel_directory, config_settings, metadata_directory
-        )
+        if _st_build_editable is None:
+            raise RuntimeError("Editable builds are not supported by this setuptools version.")
+        
+        # Editable installs expose the source tree, so .py modules and .kv
+        # files are left alone; only real .pyx sources are compiled.
+        from ._build import ksp_build
+        with ksp_build(project_dir, editable=True):
+            wheel_name = _st_build_editable(
+                wheel_directory, config_settings, metadata_directory
+            )
         wheel_path = Path(wheel_directory) / wheel_name
 
         if swift_config is not None:
@@ -148,6 +183,8 @@ if _st_build_editable is not None:
         android_config = read_android_config(project_dir)
         if android_config is not None:
             inject_gradle_config_to_wheel(wheel_path, android_config)
+
+        run_after_build(project_dir, "editable", wheel_path)
 
         return wheel_name
 

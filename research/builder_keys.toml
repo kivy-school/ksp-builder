@@ -1,0 +1,19 @@
+[build-system]
+requires = ["ksp-builder"]
+build-backend = "ksp_builder"
+
+
+
+[tool.ksp-builder]
+before_build = "path/to/before_build_script.py"
+after_build = "path/to/after_build_script.py"
+# cythonize / setuptools
+cythonize = true
+py_to_pyx = true
+
+# kv files
+compile_kv = true
+
+[tool.pyjnius]
+java-paths = ["java/"]
+
