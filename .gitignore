@@ -221,3 +221,6 @@ __marimo__/
 # pins compilekv for every downstream consumer.
 uv.lock
 Package.resolved
+
+# macOS
+.DS_Store
