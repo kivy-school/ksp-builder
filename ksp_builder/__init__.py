@@ -36,7 +36,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from setuptools import build_meta as _setuptools_backend
+# Delegate to the ``__legacy__`` backend rather than the bare module: it is the
+# same set of hooks, but its ``run_setup`` puts the project directory on
+# ``sys.path`` while ``setup.py`` executes, so scripts that import sibling
+# helpers (``from setup_sdist import ...``, ``import versioneer``) keep working
+# exactly as they do when a project declares no ``build-backend`` at all.
+from setuptools.build_meta import __legacy__ as _setuptools_backend
 
 __all__ = [
     "build_wheel",
