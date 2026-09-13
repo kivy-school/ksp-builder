@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
   "compilekv==0.0.0",
   "cython>=3.3.0",
-  "git+https://github.com/kivy-school/pyjnius-builder",
+  "pyjnius-builder @ git+https://github.com/kivy-school/pyjnius-builder",
   "setuptools>=84.0.0",
 ]
 
