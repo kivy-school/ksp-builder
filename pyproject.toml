@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ksp-builder"
-version = "0.0.1.post0"
+version = "0.0.2"
 description = "PEP 517 build backend for KSProject-based packages"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
   "compilekv==0.0.0",
   "cython>=3.3.0",
-  "pyjnius-builder @ git+https://github.com/kivy-school/pyjnius-builder",
+  "ksp-java>=0.0.0",
   "setuptools>=84.0.0",
 ]
 

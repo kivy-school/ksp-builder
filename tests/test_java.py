@@ -25,7 +25,7 @@ class TestGetJavaSourceDirs(unittest.TestCase):
             java_dir = root / "java"
             java_dir.mkdir()
             (root / "pyproject.toml").write_text(
-                '[tool.pyjnius]\njava-paths = ["java"]\n', encoding="utf-8"
+                '[tool.ksp-java]\njava-paths = ["java"]\n', encoding="utf-8"
             )
             dirs = get_java_source_dirs(project_root=root)
         self.assertEqual(dirs, [java_dir.resolve()])
@@ -34,7 +34,7 @@ class TestGetJavaSourceDirs(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "pyproject.toml").write_text(
-                '[tool.pyjnius]\njava-paths = ["nonexistent"]\n', encoding="utf-8"
+                '[tool.ksp-java]\njava-paths = ["nonexistent"]\n', encoding="utf-8"
             )
             with self.assertRaises(FileNotFoundError):
                 get_java_source_dirs(project_root=root)
@@ -42,8 +42,10 @@ class TestGetJavaSourceDirs(unittest.TestCase):
 
 class TestAddJavaSourcesToWheel(unittest.TestCase):
     def _make_wheel(self, path: Path) -> None:
+        # A real wheel always carries a RECORD; the injector rewrites it.
         with zipfile.ZipFile(path, "w") as zf:
             zf.writestr("pkg/__init__.py", "")
+            zf.writestr("pkg-0.1.dist-info/RECORD", "pkg/__init__.py,,\n")
 
     def test_injects_java_files(self):
         with tempfile.TemporaryDirectory() as tmp:

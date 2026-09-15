@@ -1,13 +1,13 @@
 # ksp-builder
 A PEP 517 build backend for KSProject-based packages that combines Cython
 compilation, Kivy KV compilation, Java source injection
-([pyjnius-builder](https://github.com/kivy-school/pyjnius-builder) convention),
+([ksp-java](https://pypi.org/project/ksp-java/) convention),
 Swift build support
 ([pyswiftkit-builder](https://github.com/Py-Swift/pyswiftkit-builder)), and
 Android Gradle configuration injection into a single backend.
 
 **Requires Python ≥ 3.13** (uses `tomllib` from the standard library and aligns
-with the minimum version requirements of pyswiftkit-builder and pyjnius-builder).
+with the minimum version requirements of pyswiftkit-builder and ksp-java).
 
 ## Usage
 
@@ -219,13 +219,13 @@ permissions = [
 
 ```
 
-### Java sources — `[tool.pyjnius]`
+### Java sources — `[tool.ksp-java]`
 
 Java source files are injected into the wheel and sdist under `.java/`, following
-the [pyjnius-builder](https://github.com/kivy-school/pyjnius-builder) convention.
+the [ksp-java](https://pypi.org/project/ksp-java/) convention.
 
 ```toml
-[tool.pyjnius]
+[tool.ksp-java]
 java-paths = ["java/"]
 ```
 
