@@ -1,6 +1,6 @@
 """ksp_builder — PEP 517 build backend for KSProject-based packages.
 
-Wraps setuptools and combines functionality from pyjnius-builder and
+Wraps setuptools and combines functionality from ksp-java and
 pyswiftkit-builder into a single backend.  User-supplied ``before_build`` /
 ``after_build`` scripts configured under ``[tool.ksp-builder]`` bracket every
 build, package sources can be compiled with Cython (``cythonize`` /
@@ -9,9 +9,9 @@ can be compiled into the modules beside them (``compile_kv``), and three
 optional injection steps run after the base setuptools wheel/sdist is
 produced:
 
-1. **Java sources** — if ``[tool.pyjnius]`` is present, Java files from the
+1. **Java sources** — if ``[tool.ksp-java]`` is present, Java files from the
    configured ``java-paths`` are injected under ``.java/`` (same convention
-   as pyjnius-builder).
+   as ksp-java).
 
 2. **Swift artifacts** — if ``[tool.pyswiftkit]`` is present *and*
    ``pyswiftkit_builder`` is installed, ``swift build`` is executed and the
